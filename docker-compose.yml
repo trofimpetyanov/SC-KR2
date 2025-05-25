@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppassword
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d fss_db && pg_isready -U appuser -d fas_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  files_storing_service:
+    build:
+      context: ./files_storing_service
+      dockerfile: Dockerfile
+    container_name: files_storing_service
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./files_storing_service:/app
+      - ./filestorage_fss:/app/filestorage_fss
+    env_file:
+      - ./files_storing_service/.env
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  file_analysis_service:
+    build:
+      context: ./file_analysis_service
+      dockerfile: Dockerfile
+    container_name: file_analysis_service
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./file_analysis_service:/app
+      - ./wordclouds_fas:/app/wordclouds_fas
+    env_file:
+      - ./file_analysis_service/.env
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      files_storing_service:
+        condition: service_started
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  api_gateway:
+    build:
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api_gateway:/app
+    env_file:
+      - ./api_gateway/.env
+    depends_on:
+      files_storing_service:
+        condition: service_started
+      file_analysis_service:
+        condition: service_started
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  postgres_data: {} 

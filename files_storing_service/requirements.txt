@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+psycopg[binary]
+asyncpg
+python-multipart
+pydantic[email]
+pydantic-settings
+httpx>=0.20.0
+python-dotenv
+alembic 
+aiofiles
+pytest
+pytest-asyncio>=0.23.0
+aiosqlite
+anyio>=4.0.0
+pytest-cov 
